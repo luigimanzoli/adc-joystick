@@ -13,15 +13,27 @@
 #define I2C_SCL 15
 #define endereco 0x3C
 
+// Definição dos pinos ADC
+
+const int XAXIS = 26; const int ADCC_0 = 0; // Puno do eixo X do Joystick e seu canal correspondente
+const int YAXIS = 27; const int ADCC_1 = 1; // Puno do eixo Y do Joystick e seu canal correspondente
+
+// Definição dos pinos PWM
+
+const float PWM_DIVISER = 16.0; // Definindo o Divisor do PWM
+const uint16_t PERIOD = 4096; // Definindo o WRAP ou máxima contagem do PWM
+uint16_t R_LED_level, B_LED_level = 100;
+uint R_LED_slice, B_LED_slice;
+
 // Definição dos LEDs RGB
-#define RLED_PIN 13
-#define GLED_PIN 11
-#define BLED_PIN 12
+#define R_LED 13
+#define G_LED 11
+#define B_LED 12
 
 // Definição dos botões
-#define BTNA_PIN 5
-#define BTNB_PIN 6
-#define BTNJ_PIN 22 // Botão do Joystick
+#define A_BUTTON 5
+#define B_BUTTON 6
+#define J_BUTTON 22 // Botão do Joystick
 
 // Variável ligada ao debounce dos botões
 static volatile uint32_t last_time = 0; 
@@ -31,29 +43,29 @@ ssd1306_t ssd;
 
 // Inicialização dos lEDs e Botões
 void init_all() {
-    gpio_init(RLED_PIN);
-    gpio_set_dir(RLED_PIN, GPIO_OUT);
-    gpio_put(RLED_PIN, 0);
+    gpio_init(R_LED);
+    gpio_set_dir(R_LED, GPIO_OUT);
+    gpio_put(R_LED, 0);
 
-    gpio_init(GLED_PIN);
-    gpio_set_dir(GLED_PIN, GPIO_OUT);
-    gpio_put(GLED_PIN, 0);
+    gpio_init(G_LED);
+    gpio_set_dir(G_LED, GPIO_OUT);
+    gpio_put(G_LED, 0);
 
-    gpio_init(BLED_PIN);
-    gpio_set_dir(BLED_PIN, GPIO_OUT);
-    gpio_put(BLED_PIN, 0);
+    gpio_init(B_LED);
+    gpio_set_dir(B_LED, GPIO_OUT);
+    gpio_put(B_LED, 0);
 
-    gpio_init(BTNA_PIN);
-    gpio_set_dir(BTNA_PIN, GPIO_IN);
-    gpio_pull_up(BTNA_PIN);
+    gpio_init(A_BUTTON);
+    gpio_set_dir(A_BUTTON, GPIO_IN);
+    gpio_pull_up(A_BUTTON);
 
-    gpio_init(BTNB_PIN);
-    gpio_set_dir(BTNB_PIN, GPIO_IN);
-    gpio_pull_up(BTNB_PIN);
+    gpio_init(B_BUTTON);
+    gpio_set_dir(B_BUTTON, GPIO_IN);
+    gpio_pull_up(B_BUTTON);
 
-    gpio_init(BTNJ_PIN);
-    gpio_set_dir(BTNJ_PIN, GPIO_IN);
-    gpio_pull_up(BTNJ_PIN);
+    gpio_init(J_BUTTON);
+    gpio_set_dir(J_BUTTON, GPIO_IN);
+    gpio_pull_up(J_BUTTON);
 }
 
 // Função que é chamada quando ocorre a interrupção
@@ -64,12 +76,12 @@ void gpio_irq_handler(uint gpio, uint32_t events){
         if (current_time - last_time > 200000){
             last_time = current_time;
             
-            if (gpio == BTNA_PIN){
+            if (gpio == A_BUTTON){
 
-                gpio_put(GLED_PIN, !gpio_get(GLED_PIN)); // Alterna o estado do LED verde
+                gpio_put(G_LED, !gpio_get(G_LED)); // Alterna o estado do LED verde
                 printf("Estado do LED Verde Alternado.\n");
 
-                if (gpio_get(GLED_PIN)){
+                if (gpio_get(G_LED)){
                     ssd1306_draw_string(&ssd, "LED Verde", 2, 8); // Desenha uma string 
                     ssd1306_draw_string(&ssd, "         ", 2, 21);
                     ssd1306_draw_string(&ssd, "LIGADO", 2, 21);
@@ -80,12 +92,12 @@ void gpio_irq_handler(uint gpio, uint32_t events){
                 ssd1306_send_data(&ssd); // Atualiza o display  
 
             }
-            else if (gpio == BTNB_PIN){
+            else if (gpio == B_BUTTON){
 
-                gpio_put(BLED_PIN, !gpio_get(BLED_PIN)); // Alterna o estado do LED azul
+                gpio_put(B_LED, !gpio_get(B_LED)); // Alterna o estado do LED azul
                 printf("Estado do LED Azul Alternado.\n");
 
-                if (gpio_get(BLED_PIN)){
+                if (gpio_get(B_LED)){
                     ssd1306_draw_string(&ssd, "LED Azul", 2, 38); // Desenha uma string
                     ssd1306_draw_string(&ssd, "         ", 2, 51); 
                     ssd1306_draw_string(&ssd, "LIGADO", 2, 51);
@@ -96,7 +108,7 @@ void gpio_irq_handler(uint gpio, uint32_t events){
                 ssd1306_send_data(&ssd); // Atualiza o display
 
             }
-            else if (gpio == BTNJ_PIN){
+            else if (gpio == J_BUTTON){
 
             }
     }
@@ -125,9 +137,9 @@ int main() {
     printf("Sistema inicializado.\n");
 
     // Configuração dos botões como interrupções
-    gpio_set_irq_enabled_with_callback(BTNA_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-    gpio_set_irq_enabled_with_callback(BTNB_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-    gpio_set_irq_enabled_with_callback(BTNJ_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+    gpio_set_irq_enabled_with_callback(A_BUTTON, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+    gpio_set_irq_enabled_with_callback(B_BUTTON, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+    gpio_set_irq_enabled_with_callback(J_BUTTON, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
     // I2C Initialisation. Using it at 400Khz.
     i2c_init(I2C_PORT, 400 * 1000);
