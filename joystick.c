@@ -38,22 +38,16 @@ uint R_LED_slice, B_LED_slice;
 // Variável ligada ao debounce dos botões
 static volatile uint32_t last_time = 0; 
 
+static volatile bool led_state = true; 
+
 // Inicializa a estrutura do display
 ssd1306_t ssd; 
 
 // Inicialização dos lEDs e Botões
 void init_all() {
-    gpio_init(R_LED);
-    gpio_set_dir(R_LED, GPIO_OUT);
-    gpio_put(R_LED, 0);
-
     gpio_init(G_LED);
     gpio_set_dir(G_LED, GPIO_OUT);
     gpio_put(G_LED, 0);
-
-    gpio_init(B_LED);
-    gpio_set_dir(B_LED, GPIO_OUT);
-    gpio_put(B_LED, 0);
 
     gpio_init(A_BUTTON);
     gpio_set_dir(A_BUTTON, GPIO_IN);
@@ -66,6 +60,43 @@ void init_all() {
     gpio_init(J_BUTTON);
     gpio_set_dir(J_BUTTON, GPIO_IN);
     gpio_pull_up(J_BUTTON);
+}
+
+void adc_setup(){
+
+    adc_init();
+    adc_gpio_init(XAXIS);
+    adc_gpio_init(YAXIS);
+
+}
+
+void pwm_setup(){
+    gpio_set_function(R_LED, GPIO_FUNC_PWM); 
+    uint R_LED_slice = pwm_gpio_to_slice_num(R_LED);   
+    pwm_set_clkdiv(R_LED_slice, PWM_DIVISER);            
+    pwm_set_wrap(R_LED_slice, PERIOD);  
+    pwm_set_gpio_level(R_LED, R_LED_level);            
+    pwm_set_enabled(R_LED_slice, true); 
+    
+    gpio_set_function(B_LED, GPIO_FUNC_PWM); 
+    uint B_LED_slice = pwm_gpio_to_slice_num(B_LED);   
+    pwm_set_clkdiv(B_LED_slice, PWM_DIVISER);            
+    pwm_set_wrap(B_LED_slice, PERIOD);
+    pwm_set_gpio_level(B_LED, B_LED_level);              
+    pwm_set_enabled(B_LED_slice, true); 
+}
+
+void display_init(){
+    
+
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
+    gpio_pull_up(I2C_SDA); // Ativa um resistor Pull Up para linha de data
+    gpio_pull_up(I2C_SCL); // Ativa um resistor Pull Up para linha de clock
+    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT); // Inicializa o display
+    ssd1306_config(&ssd); // Configura o display
+    ssd1306_send_data(&ssd); // Envia os dados para o display
+
 }
 
 // Função que é chamada quando ocorre a interrupção
@@ -81,49 +112,20 @@ void gpio_irq_handler(uint gpio, uint32_t events){
                 gpio_put(G_LED, !gpio_get(G_LED)); // Alterna o estado do LED verde
                 printf("Estado do LED Verde Alternado.\n");
 
-                if (gpio_get(G_LED)){
-                    ssd1306_draw_string(&ssd, "LED Verde", 2, 8); // Desenha uma string 
-                    ssd1306_draw_string(&ssd, "         ", 2, 21);
-                    ssd1306_draw_string(&ssd, "LIGADO", 2, 21);
-                }else{
-                    ssd1306_draw_string(&ssd, "LED Verde", 2, 8); // Desenha uma string 
-                    ssd1306_draw_string(&ssd, "DESLIGADO", 2, 21);
-                }
-                ssd1306_send_data(&ssd); // Atualiza o display  
-
             }
             else if (gpio == B_BUTTON){
-
-                gpio_put(B_LED, !gpio_get(B_LED)); // Alterna o estado do LED azul
-                printf("Estado do LED Azul Alternado.\n");
-
-                if (gpio_get(B_LED)){
-                    ssd1306_draw_string(&ssd, "LED Azul", 2, 38); // Desenha uma string
-                    ssd1306_draw_string(&ssd, "         ", 2, 51); 
-                    ssd1306_draw_string(&ssd, "LIGADO", 2, 51);
-                }else{
-                    ssd1306_draw_string(&ssd, "LED Azul", 2, 38); // Desenha uma string 
-                    ssd1306_draw_string(&ssd, "DESLIGADO", 2, 51);
-                }
-                ssd1306_send_data(&ssd); // Atualiza o display
 
             }
             else if (gpio == J_BUTTON){
 
+                led_state = !led_state;
+                if (led_state == false){
+                    pwm_set_gpio_level(R_LED, 0); 
+                    pwm_set_gpio_level(B_LED, 0); 
+                }
+
             }
     }
-
-}
-
-void display_init(){
-
-    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
-    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
-    gpio_pull_up(I2C_SDA); // Ativa um resistor Pull Up para linha de data
-    gpio_pull_up(I2C_SCL); // Ativa um resistor Pull Up para linha de clock
-    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT); // Inicializa o display
-    ssd1306_config(&ssd); // Configura o display
-    ssd1306_send_data(&ssd); // Envia os dados para o display
 
 }
 
@@ -133,6 +135,8 @@ int main() {
     stdio_init_all();
     init_all();
     display_init();
+    adc_setup();
+    pwm_setup();
 
     printf("Sistema inicializado.\n");
 
@@ -148,9 +152,26 @@ int main() {
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
+    int x_value, y_value = 0;
+
     while (true) {
         
-        sleep_ms(1000);
+        adc_select_input(ADCC_0);
+        sleep_us(10);
+        x_value = adc_read();
+
+        adc_select_input(ADCC_1);
+        sleep_us(10);
+        y_value = adc_read();
+
+        if (led_state == true){
+
+            pwm_set_gpio_level(R_LED, x_value); 
+            pwm_set_gpio_level(B_LED, y_value); 
+            
+        }
+
+        sleep_ms(100);
     }
     return 0;
 
