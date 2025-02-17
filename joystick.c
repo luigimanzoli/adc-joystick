@@ -116,8 +116,9 @@ void gpio_irq_handler(uint gpio, uint32_t events){
                 led_state = !led_state;
                 if (led_state == false){
                     pwm_set_gpio_level(R_LED, 0); 
-                    pwm_set_gpio_level(B_LED, 0); 
+                    pwm_set_gpio_level(B_LED, 0);
                 }
+
 
             }
     }
@@ -175,17 +176,17 @@ int main() {
 
         if (led_state == true){
             if (x_value > 2048){
-                pwm_set_gpio_level(R_LED, x_value-2048);
+                pwm_set_gpio_level(B_LED, x_value-2048);
             }
             else if (x_value < 2048){
-                pwm_set_gpio_level(R_LED, 2048-x_value);
+                pwm_set_gpio_level(B_LED, 2048-x_value);
             }
 
             if (y_value > 2048){
-                pwm_set_gpio_level(B_LED, y_value-2048); 
+                pwm_set_gpio_level(R_LED, y_value-2048); 
             }
             else if (y_value < 2048){
-                pwm_set_gpio_level(B_LED, 2048-y_value);
+                pwm_set_gpio_level(R_LED, 2048-y_value);
             }
         }
         
@@ -195,15 +196,22 @@ int main() {
         printf("dx = %i, dy = %i \n", dx, dy);
 
         ssd1306_fill(&ssd, false); // Limpa o display
+
+        if (led_state == false){
+            ssd1306_rect(&ssd, 2, 2, 124, 60, 1, 0);
+        }
+        ssd1306_rect(&ssd, 3, 3, 122, 58, 1, 0);
+
         if (dx < 0){
             ssd1306_rect(&ssd, -dx, dy, TAM, TAM, 1, 1);
         }
         else{
             ssd1306_rect(&ssd, dx, dy, TAM, TAM, 1, 1);
         }
+        
         ssd1306_send_data(&ssd); // Manda a informação para o display
 
-        sleep_ms(100);
+        sleep_ms(50);
     }
     return 0;
 
