@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "hardware/pwm.h"
+#include <math.h>
 
 // Bibliotecas referentes à configuração do display
 #include "hardware/i2c.h"
@@ -21,7 +22,7 @@ const int YAXIS = 27; const int ADCC_1 = 1; // Puno do eixo Y do Joystick e seu 
 // Definição dos pinos PWM
 
 const float PWM_DIVISER = 16.0; // Definindo o Divisor do PWM
-const uint16_t PERIOD = 4096; // Definindo o WRAP ou máxima contagem do PWM
+const uint16_t PERIOD = 2048; // Definindo o WRAP ou máxima contagem do PWM
 uint16_t R_LED_level, B_LED_level = 100;
 uint R_LED_slice, B_LED_slice;
 
@@ -89,13 +90,7 @@ void pwm_setup(){
 void display_init(){
     
 
-    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
-    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
-    gpio_pull_up(I2C_SDA); // Ativa um resistor Pull Up para linha de data
-    gpio_pull_up(I2C_SCL); // Ativa um resistor Pull Up para linha de clock
-    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT); // Inicializa o display
-    ssd1306_config(&ssd); // Configura o display
-    ssd1306_send_data(&ssd); // Envia os dados para o display
+    
 
 }
 
@@ -148,11 +143,23 @@ int main() {
     // I2C Initialisation. Using it at 400Khz.
     i2c_init(I2C_PORT, 400 * 1000);
 
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
+    gpio_pull_up(I2C_SDA); // Ativa um resistor Pull Up para linha de data
+    gpio_pull_up(I2C_SCL); // Ativa um resistor Pull Up para linha de clock
+    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT); // Inicializa o display
+    ssd1306_config(&ssd); // Configura o display
+    ssd1306_send_data(&ssd); // Envia os dados para o display
+
     // Limpa o display. O display inicia com todos os pixels apagados.
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
     int x_value, y_value = 0;
+
+    int dx, dy = 0;
+
+    int TAM = 8;
 
     while (true) {
         
@@ -164,12 +171,37 @@ int main() {
         sleep_us(10);
         y_value = adc_read();
 
-        if (led_state == true){
+        printf("x_value = %i y_value = %i \n", x_value, y_value);
 
-            pwm_set_gpio_level(R_LED, x_value); 
-            pwm_set_gpio_level(B_LED, y_value); 
-            
+        if (led_state == true){
+            if (x_value > 2048){
+                pwm_set_gpio_level(R_LED, x_value-2048);
+            }
+            else if (x_value < 2048){
+                pwm_set_gpio_level(R_LED, 2048-x_value);
+            }
+
+            if (y_value > 2048){
+                pwm_set_gpio_level(B_LED, y_value-2048); 
+            }
+            else if (y_value < 2048){
+                pwm_set_gpio_level(B_LED, 2048-y_value);
+            }
         }
+        
+        dx = 60-(x_value*60/4096)-(TAM/2);
+        dy = y_value*120/4096;
+
+        printf("dx = %i, dy = %i \n", dx, dy);
+
+        ssd1306_fill(&ssd, false); // Limpa o display
+        if (dx < 0){
+            ssd1306_rect(&ssd, -dx, dy, TAM, TAM, 1, 1);
+        }
+        else{
+            ssd1306_rect(&ssd, dx, dy, TAM, TAM, 1, 1);
+        }
+        ssd1306_send_data(&ssd); // Manda a informação para o display
 
         sleep_ms(100);
     }
