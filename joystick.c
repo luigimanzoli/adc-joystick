@@ -97,8 +97,11 @@ void gpio_irq_handler(uint gpio, uint32_t events){
             
             if (gpio == A_BUTTON){
 
-                gpio_put(G_LED, !gpio_get(G_LED)); // Alterna o estado do LED verde
-                printf("Estado do LED Verde Alternado.\n");
+                led_state = !led_state;
+                if (led_state == false){
+                    pwm_set_gpio_level(R_LED, 0); 
+                    pwm_set_gpio_level(B_LED, 0);
+                }
 
             }
             else if (gpio == B_BUTTON){
@@ -106,12 +109,8 @@ void gpio_irq_handler(uint gpio, uint32_t events){
             }
             else if (gpio == J_BUTTON){
 
-                led_state = !led_state;
-                if (led_state == false){
-                    pwm_set_gpio_level(R_LED, 0); 
-                    pwm_set_gpio_level(B_LED, 0);
-                }
-
+                gpio_put(G_LED, !gpio_get(G_LED)); // Alterna o estado do LED verde
+                printf("Estado do LED Verde Alternado.\n");
 
             }
     }
@@ -123,7 +122,6 @@ int main() {
     // Inicializa clock, stdio e configurações
     stdio_init_all();
     init_all();
-    display_init();
     adc_setup();
     pwm_setup();
 
