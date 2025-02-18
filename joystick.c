@@ -16,8 +16,8 @@
 
 // Definição dos pinos ADC
 
-const int XAXIS = 26; const int ADCC_0 = 0; // Puno do eixo X do Joystick e seu canal correspondente
-const int YAXIS = 27; const int ADCC_1 = 1; // Puno do eixo Y do Joystick e seu canal correspondente
+const int XAXIS = 26; const int ADCC_0 = 0; // Pino do eixo X do Joystick e seu canal correspondente
+const int YAXIS = 27; const int ADCC_1 = 1; // Pino do eixo Y do Joystick e seu canal correspondente
 
 // Definição dos pinos PWM
 
@@ -39,6 +39,7 @@ uint R_LED_slice, B_LED_slice;
 // Variável ligada ao debounce dos botões
 static volatile uint32_t last_time = 0; 
 
+// Variável para controlar o estado do LED
 static volatile bool led_state = true; 
 
 // Inicializa a estrutura do display
@@ -54,10 +55,6 @@ void init_all() {
     gpio_set_dir(A_BUTTON, GPIO_IN);
     gpio_pull_up(A_BUTTON);
 
-    gpio_init(B_BUTTON);
-    gpio_set_dir(B_BUTTON, GPIO_IN);
-    gpio_pull_up(B_BUTTON);
-
     gpio_init(J_BUTTON);
     gpio_set_dir(J_BUTTON, GPIO_IN);
     gpio_pull_up(J_BUTTON);
@@ -66,8 +63,8 @@ void init_all() {
 void adc_setup(){
 
     adc_init();
-    adc_gpio_init(XAXIS);
-    adc_gpio_init(YAXIS);
+    adc_gpio_init(XAXIS); // Inicialização do ADC do pino 26
+    adc_gpio_init(YAXIS); // Inicialização do ADC do pino 27
 
 }
 
@@ -97,14 +94,11 @@ void gpio_irq_handler(uint gpio, uint32_t events){
             
             if (gpio == A_BUTTON){
 
-                led_state = !led_state;
+                led_state = !led_state; // Altera o estado do LED
                 if (led_state == false){
                     pwm_set_gpio_level(R_LED, 0); 
                     pwm_set_gpio_level(B_LED, 0);
                 }
-
-            }
-            else if (gpio == B_BUTTON){
 
             }
             else if (gpio == J_BUTTON){
@@ -129,10 +123,9 @@ int main() {
 
     // Configuração dos botões como interrupções
     gpio_set_irq_enabled_with_callback(A_BUTTON, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-    gpio_set_irq_enabled_with_callback(B_BUTTON, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
     gpio_set_irq_enabled_with_callback(J_BUTTON, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
-    // I2C Initialisation. Using it at 400Khz.
+    // Inicialização do I2C. Usando em 400Khz.
     i2c_init(I2C_PORT, 400 * 1000);
 
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C); // Configura o pino do GPIO para I2C
@@ -147,24 +140,26 @@ int main() {
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
-    int x_value, y_value = 0;
+    int x_value, y_value = 0; // Inicializa as variáveis do valor dos eixos do joystick
 
-    int dx, dy = 0;
+    int dx, dy = 0; // Inicializa as variáveis de controle da posição do quadrado do display
 
-    int TAM = 8;
+    int TAM = 8; // Define o tamanho do quadrado do display
 
     while (true) {
         
-        adc_select_input(ADCC_0);
+        adc_select_input(ADCC_0); // Seleciona o canal de conversor 0
         sleep_us(10);
-        x_value = adc_read();
+        x_value = adc_read(); // Armazena o valor na variável do eixo x
 
-        adc_select_input(ADCC_1);
+        adc_select_input(ADCC_1); // Seleciona o canal de conversor 1
         sleep_us(10);
-        y_value = adc_read();
+        y_value = adc_read(); // Armazena o valor na variável do eixo y
 
+        // Imprime os valores no terminal para melhor visualização 
         printf("x_value = %i y_value = %i \n", x_value, y_value);
 
+        // Caso o estado do LED seja ativo, controla sua intensidade 
         if (led_state == true){
             if (x_value > 2048){
                 pwm_set_gpio_level(B_LED, x_value-2048);
@@ -181,9 +176,11 @@ int main() {
             }
         }
         
+        // Definição dos valores de posição para que não ultrapassem o valor máximo do display
         dx = 60-(x_value*60/4096)-(TAM/2);
         dy = y_value*120/4096;
 
+        // Imprime os valores no terminal para melhor visualização 
         printf("dx = %i, dy = %i \n", dx, dy);
 
         ssd1306_fill(&ssd, false);
@@ -193,6 +190,7 @@ int main() {
         }
         ssd1306_rect(&ssd, 3, 3, 122, 58, 1, 0);
 
+        // Condicional para que não coloque valores negativos na função
         if (dx < 0){
             ssd1306_rect(&ssd, -dx, dy, TAM, TAM, 1, 1);
         }
