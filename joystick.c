@@ -87,13 +87,6 @@ void pwm_setup(){
     pwm_set_enabled(B_LED_slice, true); 
 }
 
-void display_init(){
-    
-
-    
-
-}
-
 // Função que é chamada quando ocorre a interrupção
 void gpio_irq_handler(uint gpio, uint32_t events){
 
@@ -195,7 +188,7 @@ int main() {
 
         printf("dx = %i, dy = %i \n", dx, dy);
 
-        ssd1306_fill(&ssd, false); // Limpa o display
+        ssd1306_fill(&ssd, false);
 
         if (led_state == false){
             ssd1306_rect(&ssd, 2, 2, 124, 60, 1, 0);
@@ -208,7 +201,7 @@ int main() {
         else{
             ssd1306_rect(&ssd, dx, dy, TAM, TAM, 1, 1);
         }
-        
+
         ssd1306_send_data(&ssd); // Manda a informação para o display
 
         sleep_ms(50);
